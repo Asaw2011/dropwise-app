@@ -1,4 +1,5 @@
 import { TIMING } from './config.js';
+import { SHORT_TIPS } from './classify.js';
 import { before, computeLedger, scoreEvents } from './ledger.js';
 import { MIN, localDate, localTime } from './time.js';
 
@@ -9,6 +10,18 @@ function fmt12(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
   const suffix = h < 12 ? 'AM' : 'PM';
   return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+const MILESTONES = new Set([3, 5, 10, 14, 21, 30]);
+
+// picks the most useful thing to say instead of "nice work" every single time
+function encouragement({ slot, streak, total, dayDone, next }) {
+  if (slot.retried) return 'Got it on the second try. That counts.';
+  if (total === 1) return "First dose confirmed. You're all set up.";
+  if (MILESTONES.has(streak) || (streak > 30 && streak % 10 === 0)) return `${streak} doses in a row without a miss.`;
+  if (dayDone) return "That's all of today's drops.";
+  if (next) return `Done. Next drop at ${fmt12(next.timeStr)}.`;
+  return 'Dose confirmed.';
 }
 
 // every reminder, prompt, and alert that has fired up to `now`.
@@ -29,16 +42,21 @@ export function computeFeed({ profile, events, cheers, now, phaseOn }) {
   const items = [];
   const push = (it) => items.push({ ...it, atLocal: `${localDate(it.at, tz)} ${localTime(it.at, tz)}` });
   let stickers = 0;
+  let streak = 0;
+  let total = 0;
+  let lastTipKey = null;
+  let lastTipDate = null;
 
-  for (const s of app.slots) {
+  for (const [idx, s] of app.slots.entries()) {
     if (s.start > now) continue;
     const when = fmt12(s.timeStr);
     const capSide = capById.get(s.id);
+    const slotInfo = { slotId: s.id, slotDate: s.date, slotTime: s.timeStr };
     const phase = phaseOn(s.date);
 
     // cap glows at the routine time unless it already knows the dose is done
     if (s.time <= now && !(capSide?.completedAt != null && capSide.completedAt <= s.time)) {
-      push({ at: s.time, to: 'patient', channel: 'cap', kind: 'cap_glow', slotId: s.id, text: `Cap glows for the ${when} ${s.medName} dose.` });
+      push({ at: s.time, to: 'patient', channel: 'cap', kind: 'cap_glow', ...slotInfo, text: `Cap glows for the ${when} ${s.medName} dose.` });
     }
 
     const phoneAt = s.time + TIMING.phoneDelayMin[phase] * MIN;
@@ -48,7 +66,7 @@ export function computeFeed({ profile, events, cheers, now, phaseOn }) {
         to: 'patient',
         channel: profile.reminderChannel,
         kind: 'reminder',
-        slotId: s.id,
+        ...slotInfo,
         text: `Time for your ${s.medName} drops (${when}).`,
       });
     }
@@ -60,7 +78,7 @@ export function computeFeed({ profile, events, cheers, now, phaseOn }) {
         to: 'caregiver',
         channel: 'push',
         kind: 'missed_alert',
-        slotId: s.id,
+        ...slotInfo,
         text: `${name} hasn't taken the ${when} ${s.medName} dose.`,
         action: `Check in with ${name}. If they say they took it, the cap may need charging or to be near their phone to sync.`,
       });
@@ -70,7 +88,7 @@ export function computeFeed({ profile, events, cheers, now, phaseOn }) {
           to: 'caregiver',
           channel: 'push',
           kind: 'correction',
-          slotId: s.id,
+          ...slotInfo,
           text: `Update: ${name} did take the ${when} dose at ${fmt12(localTime(s.completedAt, tz))}. The cap synced late.`,
         });
       }
@@ -84,26 +102,44 @@ export function computeFeed({ profile, events, cheers, now, phaseOn }) {
         const text = a.result.outcome === 'unconfirmed'
           ? "Couldn't confirm that drop landed. Try one more."
           : "That drop didn't land in your eye. Try one more.";
-        push({ at: a.receivedAt, to: 'patient', channel: 'in_app', kind: 'retry', slotId: s.id, text });
+        push({ at: a.receivedAt, to: 'patient', channel: 'in_app', kind: 'retry', ...slotInfo, text });
       }
       if (a.result.tips.length > 0) {
-        push({ at: a.receivedAt, to: 'patient', channel: 'in_app', kind: 'coach', slotId: s.id, text: a.result.tips.join(' ') });
+        const key = a.result.tipKeys.join('+');
+        // short version only if the same fix came up earlier the same day
+        const text = key === lastTipKey && s.date === lastTipDate
+          ? `Same fix as last time: ${a.result.tipKeys.map((k) => SHORT_TIPS[k]).join(', ')}.`
+          : a.result.tips.join(' ');
+        lastTipKey = key;
+        lastTipDate = s.date;
+        push({ at: a.receivedAt, to: 'patient', channel: 'in_app', kind: 'coach', ...slotInfo, text });
       }
     }
 
     for (const x of s.extras) {
       if (x.receivedAt - x.occurredAt <= FRESH_MS) {
-        push({ at: x.receivedAt, to: 'patient', channel: 'in_app', kind: 'already_done', slotId: s.id, text: 'This dose was already done. No need for another drop.' });
+        push({ at: x.receivedAt, to: 'patient', channel: 'in_app', kind: 'already_done', ...slotInfo, text: 'This dose was already done. No need for another drop.' });
       }
+    }
+
+    if (s.status === 'complete') {
+      streak++;
+      total++;
+    } else if (s.status === 'missed' || s.status === 'partial_missed') {
+      streak = 0;
     }
 
     if (s.knewAt != null && s.knewAt <= now) {
       if (kid) stickers++;
       const fresh = s.knewAt - s.completedAt <= FRESH_MS;
       if (fresh && kid) {
-        push({ at: s.knewAt, to: 'patient', channel: 'in_app', kind: 'celebrate', slotId: s.id, text: `You did it! Sticker #${stickers} added.` });
+        push({ at: s.knewAt, to: 'patient', channel: 'in_app', kind: 'celebrate', ...slotInfo, text: `You did it! Sticker #${stickers} added.` });
       } else if (fresh && phase !== 'maintaining') {
-        push({ at: s.knewAt, to: 'patient', channel: 'in_app', kind: 'encourage', slotId: s.id, text: s.retried ? 'Got it on the retry. Nice work.' : 'Dose confirmed. Nice work.' });
+        const sameDay = app.slots.filter((x) => x.date === s.date);
+        const dayDone = sameDay.length > 1 && sameDay.every((x) => x.status === 'complete') && sameDay.at(-1).id === s.id;
+        const next = app.slots.slice(idx + 1).find((x) => x.medId === s.medId) ?? null;
+        const text = encouragement({ slot: s, streak, total, dayDone, next });
+        push({ at: s.knewAt, to: 'patient', channel: 'in_app', kind: 'encourage', ...slotInfo, text });
       }
     }
   }

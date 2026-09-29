@@ -75,6 +75,16 @@
   .alert.fix { border-color: var(--green); background: var(--green-bg); }
   .alert.info { border-color: var(--amber); background: var(--amber-bg); }
   .alert .act { font-size: 13px; margin-top: 4px; }
+  .steps { max-width: 1280px; margin: 16px auto 0; padding: 0 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .steps div { flex: 1; min-width: 220px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+  .steps b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; margin-right: 8px; }
+  .scenarios .main { padding: 14px; font-size: 16px; font-weight: 600; background: var(--green-bg); border-color: #bbf7d0; }
+  .scenarios .main:hover { background: #c7f5d6; }
+  .wrong { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .alert .title { font-weight: 600; }
   #toast.err { background: var(--red); }
   #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; display: none; z-index: 10; max-width: 90vw; }
 </style>
@@ -93,6 +103,12 @@
   </div>
 </header>
 
+<div class="steps">
+  <div><b>1</b>Press <strong>Skip to next dose</strong> to jump to when drops are due.</div>
+  <div><b>2</b>Press <strong>Clean drop</strong> on the cap, or try what can go wrong.</div>
+  <div><b>3</b>Watch the patient's and caregiver's phones react.</div>
+</div>
+
 <main>
   <!-- cap -->
   <section class="card">
@@ -109,10 +125,11 @@
 
     <h3>Squeeze the bottle</h3>
     <div class="row small" style="margin-bottom:10px">
-      <span class="muted">Eye:</span>
+      <span class="muted">Drop goes in the</span>
       <div class="seg" id="eyeSeg"></div>
     </div>
-    <div class="row small" style="margin-bottom:12px">
+    <details style="margin-bottom:10px"><summary>More options: phone out of range, battery</summary>
+    <div class="row small" style="margin-bottom:6px">
       <label class="field" style="flex:1">Phone
         <select id="sync">
           <option value="0">Nearby, syncs instantly</option>
@@ -125,7 +142,10 @@
         <input id="batt" type="number" min="0" max="100" value="80">
       </label>
     </div>
+    </details>
     <div class="scenarios" id="scenarios"></div>
+    <h3>What can go wrong</h3>
+    <div class="scenarios wrong" id="wrong"></div>
     <div id="result" class="result gray" aria-live="polite">Pick what happens when the patient squeezes.</div>
   </section>
 
@@ -205,9 +225,10 @@
 const $ = (id) => document.getElementById(id);
 let S = null;
 let eye = 'left';
+let eyeManual = false;
 
 const SCEN = [
-  ['good', 'Clean drop', 'Landed in the eye'],
+  ['good', 'Clean drop', 'The drop lands in the eye'],
   ['missed_cheek', 'Missed the eye', 'Held too far away and tilted'],
   ['eye_closed', 'Blinked', 'Eye was closed when the drop hit'],
   ['unsure', "Sensors disagree", 'Camera says yes, heat sensor says no'],
@@ -252,6 +273,7 @@ function dayName(date) {
   return new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(d);
 }
 const slotName = (m) => `${dayName(m.date)} ${t12(m.time)}`;
+const medPrefix = () => (S.profile.medications.length > 1 ? `${S.profile.medications[0].name}, ` : '');
 const eyesText = (eyes) => (eyes.length === 2 ? 'both eyes' : `${eyes[0]} eye`);
 const whenText = (ms) => {
   const sameDay = tzFmt({ dateStyle: 'short' }).format(ms) === tzFmt({ dateStyle: 'short' }).format(S.now);
@@ -281,7 +303,7 @@ function doseStatus(d) {
 
 const MSG = {
   reminder: ['Reminder', 'amber'], retry: ['Try again', 'red'], coach: ['Tip', 'blue'], already_done: ['Already done', 'blue'],
-  encourage: ['Nice work', 'green'], celebrate: ['Yay', 'green'], cheer: ['Heart', 'green'], low_battery: ['Battery', 'amber'],
+  encourage: ['Done', 'green'], celebrate: ['Yay', 'green'], cheer: ['Heart', 'green'], low_battery: ['Battery', 'amber'],
 };
 
 function render(s) {
@@ -298,8 +320,13 @@ function render(s) {
   $('unsynced').textContent = s.unsyncedEvents ? `${s.unsyncedEvents} drop(s) waiting to sync to the phone` : '';
   $('unsynced').style.color = 'var(--amber)';
   $('hint').textContent = s.placementHint ?? '';
-  $('eyeSeg').replaceChildren(...[['left', 'Left'], ['right', 'Right'], ['', 'Camera unsure']].map(([v, label]) =>
-    el('button', { 'aria-pressed': String(eye === v), onclick: () => { eye = v; render(S); } }, label)));
+  // pick the eye that still needs a drop unless the user chose one
+  if (!eyeManual) {
+    const due = s.patient.today.doses.find((d) => d.status === 'open' && d.eyesDone.length < d.eyes.length);
+    if (due) eye = due.eyes.find((e) => !due.eyesDone.includes(e));
+  }
+  $('eyeSeg').replaceChildren(...[['left', 'Left eye'], ['right', 'Right eye'], ['', "Camera can't tell"]].map(([v, label]) =>
+    el('button', { 'aria-pressed': String(eye === v), onclick: () => { eye = v; eyeManual = true; render(S); } }, label)));
 
   // next dose + skip button
   const next = s.patient.today.nextDose;
@@ -322,16 +349,23 @@ function render(s) {
   $('doses').replaceChildren(...(doses.length ? doses.map((d) => {
     const [label, color] = doseStatus(d);
     const extra = [d.retried && 'got it on a retry', d.lateSync && 'synced late', d.status === 'partial_missed' && `only ${d.eyesDone.join(', ')}`].filter(Boolean).join(', ');
-    return el('li', {}, el('div', {}, el('b', {}, t12(d.time)), ` ${d.med}, ${eyesText(d.eyes)}`, extra ? el('div', { class: 'small muted' }, extra) : null), el('span', { class: `pill ${color}` }, label));
+    return el('li', {}, el('div', {}, el('b', {}, t12(d.time)), ` ${medPrefix()}${eyesText(d.eyes)}`, extra ? el('div', { class: 'small muted' }, extra) : null), el('span', { class: `pill ${color}` }, label));
   }) : [el('li', { class: 'empty' }, 'No doses today.')]));
   $('stickers').textContent = s.patient.stickers != null ? `Sticker book: ${s.patient.stickers} sticker${s.patient.stickers === 1 ? '' : 's'}` : '';
 
-  const msgs = s.patient.feed.filter((i) => i.channel !== 'cap').slice(-10).reverse();
-  $('messages').replaceChildren(...(msgs.length ? msgs.map((i) => {
+  const msgItem = (i) => {
     const [label, color] = MSG[i.kind] ?? [i.kind, ''];
     const via = i.channel === 'call' ? ' (phone call)' : '';
     return el('li', {}, el('div', { class: 'msg' }, el('span', { class: `pill ${color}` }, label), el('span', {}, i.text + via), el('span', { class: 'when' }, whenText(i.at))));
-  }) : [el('li', { class: 'empty' }, 'No messages yet.')]));
+  };
+  const phoneMsgs = s.patient.feed.filter((i) => i.channel !== 'cap');
+  const isToday = (i) => i.atLocal.startsWith(s.today);
+  const todayMsgs = phoneMsgs.filter(isToday).reverse();
+  const older = phoneMsgs.filter((i) => !isToday(i)).slice(-8).reverse();
+  $('messages').replaceChildren(
+    ...(todayMsgs.length ? todayMsgs.map(msgItem) : [el('li', { class: 'empty' }, 'Nothing today yet.')]),
+    older.length ? el('li', { style: 'display:block' }, el('details', {}, el('summary', {}, `Earlier messages (${older.length})`), el('ul', { class: 'list' }, older.map(msgItem)))) : null,
+  );
 
   const w = s.patient.week;
   $('week').replaceChildren(
@@ -361,8 +395,8 @@ function render(s) {
       const a = cg.adherence;
       parts.push(el('div', { class: 'hero' }, el('div', { class: 'muted small' }, 'This week'), el('div', { class: 'big' }, `${a.dosesDone} of ${a.dosesDue} doses`),
         a.missed.length ? el('div', { class: 'small' }, `Missed: ${a.missed.map(slotName).join(', ')}`) : el('div', { class: 'small' }, 'Nothing missed')));
-      const today = a.today.map((d) => { const [label, color] = doseStatus(d); return el('li', {}, el('span', {}, `${t12(d.time)} ${eyesText(d.eyes)}`), el('span', { class: `pill ${color}` }, label)); });
-      parts.push(el('h3', {}, 'Today'), el('ul', { class: 'list' }, today));
+      const today = a.today.map((d) => { const [label, color] = doseStatus(d); return el('div', { class: 'chip' }, el('b', {}, t12(d.time)), el('span', { class: `pill ${color}` }, label)); });
+      parts.push(el('h3', {}, 'Today'), el('div', { class: 'chips' }, today));
     } else parts.push(el('p', { class: 'muted small' }, `${p.patientName} isn't sharing which doses they took.`));
     if (cg.technique) {
       parts.push(el('h3', {}, 'Aim'), el('div', { class: 'small' }, cg.technique.goodAimPct == null ? 'No drops yet this week.' : `Good aim on ${cg.technique.goodAimPct}% of drops${cg.technique.aimTrend ? `, ${cg.technique.aimTrend}` : ''}.`));
@@ -373,9 +407,14 @@ function render(s) {
     const alerts = recent.slice(-4).reverse();
     const hidden = cg.notifications.length - alerts.length;
     if (!alerts.length) parts.push(el('p', { class: 'empty' }, sh.alerts ? 'No alerts in the last 2 days. You only hear from the app when something needs you.' : `${p.patientName} turned off missed-dose alerts.`));
+    const newestMiss = alerts.find((a) => a.kind === 'missed_alert');
     for (const a of alerts) {
       const cls = a.kind === 'correction' ? 'alert fix' : a.kind === 'low_battery' ? 'alert info' : 'alert';
-      parts.push(el('div', { class: cls }, el('div', {}, a.text), a.action ? el('div', { class: 'act' }, a.action) : null, el('div', { class: 'small muted' }, whenText(a.at))));
+      let title = a.text;
+      if (a.kind === 'missed_alert') title = `Missed dose: ${dayName(a.slotDate)} ${t12(a.slotTime)}`;
+      if (a.kind === 'correction') title = `False alarm: ${dayName(a.slotDate)} ${t12(a.slotTime)} was taken`;
+      const sub = a.kind === 'correction' ? 'The cap was out of range and synced late.' : a === newestMiss ? a.action : null;
+      parts.push(el('div', { class: cls }, el('div', { class: 'title' }, title), sub ? el('div', { class: 'act' }, sub) : null, el('div', { class: 'small muted' }, `Sent ${whenText(a.at)}`)));
     }
     if (hidden > 0) parts.push(el('p', { class: 'small muted' }, `${hidden} older alert${hidden === 1 ? '' : 's'} not shown.`));
     $('cg').replaceChildren(...parts);
@@ -397,7 +436,8 @@ function render(s) {
     stat(t.medianTiltDeg != null ? `${t.medianTiltDeg}°` : null, 'Typical bottle tilt'),
     stat(r.ignoredFalseTriggers, 'False triggers ignored'),
   );
-  $('reportMissed').textContent = r.missed.length ? `Missed doses: ${r.missed.map(slotName).join(', ')}` : '';
+  const lastMissed = r.missed.slice(-5).reverse().map(slotName).join(', ');
+  $('reportMissed').textContent = r.missed.length ? `${r.missed.length} missed dose${r.missed.length === 1 ? '' : 's'}. Most recent: ${lastMissed}${r.missed.length > 5 ? ', ...' : ''}` : 'No missed doses.';
 
   // setup form, only refill when not being edited
   if (!document.querySelector('.form').contains(document.activeElement)) {
@@ -423,12 +463,13 @@ function showResult(d) {
   $('result').textContent = text;
 }
 
-$('scenarios').replaceChildren(...SCEN.map(([key, title, sub]) => el('button', {
-  onclick: async () => {
-    const data = await api('/api/drop', { scenario: key, eye, syncDelayMin: Number($('sync').value), batteryPct: $('batt').value, capId: S?.caps?.[0]?.capId });
-    if (data) showResult(data.lastDrop);
-  },
-}, title, el('span', {}, sub))));
+const squeeze = async (key) => {
+  const data = await api('/api/drop', { scenario: key, eye, syncDelayMin: Number($('sync').value), batteryPct: $('batt').value, capId: S?.caps?.[0]?.capId });
+  if (data) { showResult(data.lastDrop); eyeManual = false; render(S); }
+};
+const scenBtn = ([key, title, sub], cls = '') => el('button', { class: cls, onclick: () => squeeze(key) }, title, el('span', {}, sub));
+$('scenarios').replaceChildren(scenBtn(SCEN[0], 'main'));
+$('wrong').replaceChildren(...SCEN.slice(1).map((x) => scenBtn(x)));
 
 document.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => api('/api/clock', { advanceMin: Number(b.dataset.adv) })));
 $('nextBtn').onclick = () => api('/api/clock', { toNextDose: true });

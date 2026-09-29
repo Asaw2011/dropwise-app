@@ -37,7 +37,7 @@ export function checkAim(reading) {
   return { distance, angle, good, tofMm: tofMm ?? null, tiltDeg: tiltDeg ?? null };
 }
 
-const TIPS = {
+export const TIPS = {
   too_far: 'Bring the bottle a bit closer, about 1 to 3 cm above your eye.',
   too_close: "Hold the bottle a little higher so the tip doesn't touch your eye.",
   tilted: 'Point the bottle straight down over your eye.',
@@ -45,15 +45,24 @@ const TIPS = {
   missed_aim_ok: 'Tilt your head back and look up before you squeeze.',
 };
 
+// used when the same fix comes up again so it doesnt read like a broken record
+export const SHORT_TIPS = {
+  too_far: 'bring it closer',
+  too_close: 'hold it a bit higher',
+  tilted: 'point it straight down',
+  eye_closed: 'keep your eye open',
+  missed_aim_ok: 'tilt your head back first',
+};
+
 // only returns tips when theres something to actually fix
 function coachingTips(aim, outcome, eyeClosed) {
-  const tips = [];
-  if (eyeClosed) tips.push(TIPS.eye_closed);
-  if (aim.distance === 'too_far') tips.push(TIPS.too_far);
-  if (aim.distance === 'too_close') tips.push(TIPS.too_close);
-  if (aim.angle === 'tilted') tips.push(TIPS.tilted);
-  if (outcome === 'missed_eye' && tips.length === 0) tips.push(TIPS.missed_aim_ok);
-  return tips;
+  const keys = [];
+  if (eyeClosed) keys.push('eye_closed');
+  if (aim.distance === 'too_far') keys.push('too_far');
+  if (aim.distance === 'too_close') keys.push('too_close');
+  if (aim.angle === 'tilted') keys.push('tilted');
+  if (outcome === 'missed_eye' && keys.length === 0) keys.push('missed_aim_ok');
+  return keys;
 }
 
 export function classifyReading(reading) {
@@ -93,6 +102,7 @@ export function classifyReading(reading) {
     confidence = 'low';
   }
 
+  const tipKeys = coachingTips(aim, outcome, eyeClosed);
   return {
     kind: 'drop',
     outcome,
@@ -100,6 +110,7 @@ export function classifyReading(reading) {
     eye: reading.camera?.eye ?? null,
     votes: { camera: cam, thermopile: th },
     aim,
-    tips: coachingTips(aim, outcome, eyeClosed),
+    tipKeys,
+    tips: tipKeys.map((k) => TIPS[k]),
   };
 }

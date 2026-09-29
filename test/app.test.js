@@ -78,6 +78,56 @@ test('next dose rolls over to tomorrow after the last one today', () => {
   assert.equal(app.snapshot(at(D, '21:00')).patient.today.doses.length, 2);
 });
 
+test('encouragement says something useful and changes with context', () => {
+  const app = makeApp();
+  const msg = (now) => app.snapshot(now).patient.feed.filter((i) => i.kind === 'encourage').map((i) => i.text);
+  drop(app, 'good', at(D, '08:01'));
+  assert.deepEqual(msg(at(D, '08:02')), ["First dose confirmed. You're all set up."]);
+  drop(app, 'good', at(D, '20:01'));
+  assert.equal(msg(at(D, '20:02'))[1], "That's all of today's drops.");
+  drop(app, 'missed_cheek', at('2026-10-02', '08:01'));
+  drop(app, 'good', at('2026-10-02', '08:02'));
+  assert.equal(msg(at('2026-10-02', '08:03'))[2], 'Got it on the second try. That counts.');
+  drop(app, 'good', at('2026-10-02', '20:01'));
+  // 4 in a row, not a milestone, and the day is done
+  assert.equal(msg(at('2026-10-02', '20:02'))[3], "That's all of today's drops.");
+  drop(app, 'good', at('2026-10-03', '08:01'));
+  assert.equal(msg(at('2026-10-03', '08:02'))[4], '5 doses in a row without a miss.');
+});
+
+test('mid day encouragement says when the next drop is', () => {
+  const app = makeApp({ medications: [{ name: 'X', capId: 'cap-1', doses: [{ time: '08:00', eyes: ['left'] }, { time: '14:00', eyes: ['left'] }, { time: '20:00', eyes: ['left'] }] }] });
+  drop(app, 'good', at(D, '08:01'));
+  drop(app, 'good', at(D, '14:01'));
+  const texts = app.snapshot(at(D, '14:02')).patient.feed.filter((i) => i.kind === 'encourage').map((i) => i.text);
+  assert.equal(texts[1], 'Done. Next drop at 8:00 PM.');
+});
+
+test('same tip twice in a row gets the short version', () => {
+  const app = makeApp();
+  drop(app, 'missed_cheek', at(D, '08:01'));
+  drop(app, 'missed_cheek', at(D, '08:02'));
+  const tips = app.snapshot(at(D, '08:03')).patient.feed.filter((i) => i.kind === 'coach').map((i) => i.text);
+  assert.match(tips[0], /Bring the bottle a bit closer/);
+  assert.equal(tips[1], 'Same fix as last time: bring it closer, point it straight down.');
+});
+
+test('same tip on a different day gets the full version again', () => {
+  const app = makeApp();
+  drop(app, 'missed_cheek', at(D, '08:01'));
+  drop(app, 'missed_cheek', at('2026-10-02', '08:01'));
+  const tips = app.snapshot(at('2026-10-02', '08:02')).patient.feed.filter((i) => i.kind === 'coach').map((i) => i.text);
+  assert.match(tips[1], /Bring the bottle a bit closer/);
+});
+
+test('feed items carry the dose date and time for compact titles', () => {
+  const app = makeApp();
+  const s = app.snapshot(at(D, '11:30'));
+  const alert = s.caregiver.notifications[0];
+  assert.equal(alert.slotDate, D);
+  assert.equal(alert.slotTime, '08:00');
+});
+
 test('only failed attempts means missed, not complete', () => {
   const app = makeApp();
   drop(app, 'missed_cheek', at(D, '08:02'));
