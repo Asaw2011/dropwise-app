@@ -18,7 +18,7 @@
 - Motion is soft and short: screens fade up, setup steps slide, sheets glide, buttons press down. It's all turned off when the device has reduce motion enabled.
 - Checked in headless Chrome: 30 click-through checks, no JS errors. 44 engine tests pass.
 
-## M2: UI/UX theme (Avi, in progress)
+## M3: UI/UX polish (Avi, in progress)
 - Build the designed screens on top of the core. Every screen can get its data from `GET /api/state`, which returns the patient today view, feed, week, caregiver view, cap lights, and doctor report.
 - The core should not need changes for this. If a screen needs data the API doesn't return, add it to `src/core/reports.js`.
 
