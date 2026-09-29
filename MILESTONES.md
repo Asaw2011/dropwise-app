@@ -18,6 +18,15 @@
 - Motion is soft and short: screens fade up, setup steps slide, sheets glide, buttons press down. It's all turned off when the device has reduce motion enabled.
 - Checked in headless Chrome: 30 click-through checks, no JS errors. 44 engine tests pass.
 
+## M2.1: Calmer, nature redesign for older users (2026-09-29), git tag `app-v0.2`
+- Cream, forest, and sage palette with sky blue and a sunny amber for "due". The Lexend font is built for easy reading.
+- Bigger everything: 18px base text, 30px headings, 60px buttons.
+- Four tabs instead of five (Today, Progress, Messages, Me). The cap's status moved into the Today card and a "My cap" section in Me.
+- Today is just a greeting, one big card that answers "what do I do now?", and today's drops.
+- Progress is a plant that grows with the habit (seed, sprout, seedling, growing, budding, in bloom at day 59). Kid mode shows a flower garden.
+- The mascot is a dewdrop with a sprout on top. Older messages are hidden behind "Show earlier". The caregiver sees at most 2 alerts.
+- 31 browser checks and 44 engine tests pass.
+
 ## M3: UI/UX polish (Avi, in progress)
 - Build the designed screens on top of the core. Every screen can get its data from `GET /api/state`, which returns the patient today view, feed, week, caregiver view, cap lights, and doctor report.
 - The core should not need changes for this. If a screen needs data the API doesn't return, add it to `src/core/reports.js`.
