@@ -3,129 +3,454 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dropwise Core</title>
+<title>Dropwise Simulator</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --ink: #1c1f24; --muted: #6b7280; --line: #e5e7eb;
+    --green: #15803d; --green-bg: #dcfce7; --amber: #b45309; --amber-bg: #fef3c7;
+    --red: #b91c1c; --red-bg: #fee2e2; --blue: #1d4ed8; --blue-bg: #dbeafe; --gray-bg: #f3f4f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  header h1 small { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
+  .clock { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .clock b { font-size: 17px; min-width: 190px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px; display: grid; gap: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 1050px) { main { grid-template-columns: 1fr; } }
+  .full { grid-column: 1 / -1; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  h3 { font-size: 14px; margin: 18px 0 8px; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card); border-radius: 9px; padding: 7px 12px; }
+  button:hover { background: var(--gray-bg); }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  button.primary:hover { opacity: .9; }
+  button:disabled { opacity: .45; cursor: default; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--gray-bg); color: var(--muted); white-space: nowrap; }
+  .pill.green { background: var(--green-bg); color: var(--green); }
+  .pill.amber { background: var(--amber-bg); color: var(--amber); }
+  .pill.red { background: var(--red-bg); color: var(--red); }
+  .pill.blue { background: var(--blue-bg); color: var(--blue); }
+  .hero { border-radius: 12px; padding: 14px 16px; background: var(--gray-bg); }
+  .hero .big { font-size: 22px; font-weight: 700; }
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .list li:last-child { border-bottom: 0; }
+  .msg { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+  .msg .pill { align-self: start; }
+  .msg .when { grid-column: 2; font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); font-size: 14px; padding: 6px 0; }
+  /* cap */
+  .cap { display: flex; align-items: center; gap: 16px; }
+  .light { width: 64px; height: 64px; border-radius: 50%; background: #d1d5db; border: 4px solid #e5e7eb; flex: none; }
+  .light.green { background: #22c55e; border-color: #bbf7d0; box-shadow: 0 0 18px #22c55e88; }
+  .light.glow { background: #f59e0b; border-color: #fde68a; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 26px #f59e0bcc; } }
+  @media (prefers-reduced-motion: reduce) { .light.glow { animation: none; box-shadow: 0 0 20px #f59e0baa; } }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .scenarios { display: grid; gap: 8px; }
+  .scenarios button { text-align: left; padding: 10px 12px; }
+  .scenarios button span { display: block; font-size: 12px; color: var(--muted); }
+  .result { margin-top: 12px; border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+  .result.green { background: var(--green-bg); } .result.red { background: var(--red-bg); } .result.amber { background: var(--amber-bg); } .result.gray { background: var(--gray-bg); }
+  label.field { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select { font: inherit; color: var(--ink); padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .toggle { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); gap: 12px; }
+  .toggle:last-child { border-bottom: 0; }
+  .toggle input { width: 18px; height: 18px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .stat { background: var(--gray-bg); border-radius: 10px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 20px; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .alert { border-left: 3px solid var(--red); background: var(--red-bg); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .alert.fix { border-color: var(--green); background: var(--green-bg); }
+  .alert.info { border-color: var(--amber); background: var(--amber-bg); }
+  .alert .act { font-size: 13px; margin-top: 4px; }
+  #toast.err { background: var(--red); }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 10px; display: none; z-index: 10; max-width: 90vw; }
+</style>
 </head>
 <body>
-<h1>Dropwise core (no UI yet)</h1>
-<p>Test harness for the core functions. The cap and clock are simulated. <span id="err" role="alert"></span></p>
 
-<h2>Clock</h2>
-<p>Now: <b id="now"></b> | Habit phase: <b id="phase"></b> | Unsynced cap events: <b id="unsynced"></b></p>
-<button data-adv="15">+15 min</button>
-<button data-adv="60">+1 hour</button>
-<button data-adv="240">+4 hours</button>
-<button data-adv="1440">+1 day</button>
-<label>Jump to <input id="setTime" type="datetime-local"></label> <button id="setBtn">Set</button>
+<header>
+  <h1>Dropwise <small>app simulator, research prototype</small></h1>
+  <div class="clock">
+    <span class="muted small">Simulated time</span>
+    <b id="now">...</b>
+    <button data-adv="15">+15 min</button>
+    <button data-adv="60">+1 hour</button>
+    <button id="nextBtn" class="primary">Skip to next dose</button>
+    <button data-adv="1440">+1 day</button>
+  </div>
+</header>
 
-<h2>Cap</h2>
-<ul id="caps"></ul>
-<p id="hint"></p>
-<label>What happens <select id="scenario"></select></label>
-<label>Eye <select id="eye"><option value="">camera unsure</option><option>left</option><option>right</option></select></label>
-<label>Sync delay (min) <input id="delay" type="number" min="0" value="0" size="4"></label>
-<label>Battery % <input id="battery" type="number" min="0" max="100" value="80" size="4"></label>
-<button id="dropBtn">Squeeze bottle</button>
+<main>
+  <!-- cap -->
+  <section class="card">
+    <h2>The cap</h2>
+    <div class="cap">
+      <div id="light" class="light" role="img" aria-label="cap light"></div>
+      <div>
+        <div id="lightLabel" style="font-weight:600"></div>
+        <div id="battery" class="muted small"></div>
+        <div id="unsynced" class="small"></div>
+      </div>
+    </div>
+    <p id="hint" class="small muted"></p>
 
-<h2>Patient: today</h2>
-<p id="next"></p>
-<table border="1">
-<thead><tr><th>Time</th><th>Med</th><th>Eyes</th><th>Done</th><th>Status</th><th>Taken at</th><th>Retried</th><th>Late sync</th></tr></thead>
-<tbody id="doses"></tbody>
-</table>
-<p id="stickers"></p>
+    <h3>Squeeze the bottle</h3>
+    <div class="row small" style="margin-bottom:10px">
+      <span class="muted">Eye:</span>
+      <div class="seg" id="eyeSeg"></div>
+    </div>
+    <div class="row small" style="margin-bottom:12px">
+      <label class="field" style="flex:1">Phone
+        <select id="sync">
+          <option value="0">Nearby, syncs instantly</option>
+          <option value="30">Out of range, syncs in 30 min</option>
+          <option value="120">Out of range, syncs in 2 hours</option>
+          <option value="720">Out of range, syncs in 12 hours</option>
+        </select>
+      </label>
+      <label class="field" style="width:90px">Battery %
+        <input id="batt" type="number" min="0" max="100" value="80">
+      </label>
+    </div>
+    <div class="scenarios" id="scenarios"></div>
+    <div id="result" class="result gray" aria-live="polite">Pick what happens when the patient squeezes.</div>
+  </section>
 
-<h2>Patient: feed (latest first)</h2>
-<ol id="feed" reversed></ol>
+  <!-- patient phone -->
+  <section class="card">
+    <h2 id="patientTitle">Patient's phone</h2>
+    <div id="nextHero" class="hero"></div>
 
-<h2>Patient: this week</h2>
-<pre id="week"></pre>
+    <h3>Today</h3>
+    <ul class="list" id="doses"></ul>
+    <p id="stickers" class="small"></p>
 
-<h2>Caregiver view</h2>
-<label>From <input id="cheerFrom" value="Avi" size="8"></label> <button id="cheerBtn">Send heart</button>
-<pre id="caregiver"></pre>
+    <h3>Messages</h3>
+    <ul class="list" id="messages"></ul>
 
-<h2>Sharing (patient controls)</h2>
-<label><input type="checkbox" data-share="paused"> Pause all sharing</label>
-<label><input type="checkbox" data-share="adherence"> Share doses</label>
-<label><input type="checkbox" data-share="technique"> Share aim</label>
-<label><input type="checkbox" data-share="alerts"> Send missed-dose alerts</label>
+    <h3>This week</h3>
+    <div id="week" class="small"></div>
 
-<h2>Doctor report (last 30 days)</h2>
-<pre id="report"></pre>
+    <h3>What I share with family</h3>
+    <div id="sharing"></div>
+  </section>
 
-<h2>Setup and demo data</h2>
-<button id="demoBtn">Reset to demo (20 days of history)</button>
-<label>Backfill <input id="histDays" type="number" value="70" size="4"> days at <input id="histRate" type="number" value="0.9" step="0.05" size="4"> adherence</label>
-<button id="histBtn">Backfill</button>
-<details>
-<summary>Edit setup (JSON)</summary>
-<textarea id="setup" rows="18" cols="80"></textarea><br>
-<button id="setupBtn">Save setup (clears history)</button>
-</details>
+  <!-- caregiver phone -->
+  <section class="card">
+    <h2 id="cgTitle">Caregiver's phone</h2>
+    <div id="cg"></div>
+    <h3>Send encouragement</h3>
+    <div class="row">
+      <button id="cheerBtn" class="primary">Send a heart</button>
+      <span class="small muted">Shows up after their next confirmed drop.</span>
+    </div>
+  </section>
+
+  <!-- doctor -->
+  <section class="card full">
+    <h2>Doctor report, last 30 days</h2>
+    <div class="stats" id="report"></div>
+    <p class="small muted" id="reportMissed"></p>
+    <p class="small muted">Research prototype data. Not a medical device and not clinically validated.</p>
+  </section>
+
+  <!-- setup -->
+  <section class="card full">
+    <h2>Setup</h2>
+    <div class="form">
+      <label class="field">Patient name <input id="fName"></label>
+      <label class="field">Patient is
+        <select id="fMode"><option value="adult">An adult</option><option value="kid">A child (kid mode)</option></select>
+      </label>
+      <label class="field">Medication <input id="fMed"></label>
+      <label class="field">Dose times (24h, comma separated) <input id="fTimes" placeholder="08:00, 20:00"></label>
+      <label class="field">Which eye
+        <select id="fEyes"><option value="left">Left</option><option value="right">Right</option><option value="both">Both</option></select>
+      </label>
+      <label class="field">Right before drops they're usually... <input id="fAnchor" placeholder="brushing teeth"></label>
+      <label class="field">Keep the bottle... <input id="fPlace" placeholder="next to the toothbrush"></label>
+      <label class="field">Remind them by
+        <select id="fChannel"><option value="push">Phone notification</option><option value="call">Phone call</option></select>
+      </label>
+      <label class="field">Caregiver name <input id="fCg"></label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button id="saveBtn" class="primary">Save and start fresh</button>
+      <button id="demoBtn">Reset to demo</button>
+      <span class="muted small" style="margin-left:12px">Fill in past days:</span>
+      <input id="hDays" type="number" value="70" min="1" max="365" style="width:70px" aria-label="days"> <span class="small muted">days at</span>
+      <input id="hRate" type="number" value="90" min="0" max="100" style="width:64px" aria-label="adherence percent"> <span class="small muted">% taken</span>
+      <button id="histBtn">Fill in</button>
+    </div>
+    <p class="small muted">Tip: 70 days fills past the 59 day habit building phase, so the app switches to maintaining mode. A low % like 50 switches it to supporting mode.</p>
+  </section>
+</main>
+
+<div id="toast" role="alert"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-let last = null;
+let S = null;
+let eye = 'left';
 
-async function api(path, body) {
-  const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await res.json();
-  if (!res.ok) { $('err').textContent = 'Error: ' + data.error; return null; }
-  $('err').textContent = '';
-  render(data);
-  return data;
+const SCEN = [
+  ['good', 'Clean drop', 'Landed in the eye'],
+  ['missed_cheek', 'Missed the eye', 'Held too far away and tilted'],
+  ['eye_closed', 'Blinked', 'Eye was closed when the drop hit'],
+  ['unsure', "Sensors disagree", 'Camera says yes, heat sensor says no'],
+  ['camera_blind', 'Camera missed it', 'Only the heat sensor saw it land'],
+  ['false_trigger', 'Not a drop', 'Something blocked the beam'],
+];
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k instanceof Node ? k : String(k));
+  return e;
 }
 
-function li(text) { const el = document.createElement('li'); el.textContent = text; return el; }
+function toast(msg, err = true) {
+  const t = $('toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = 'none'), 4000);
+}
+
+async function api(path, body) {
+  try {
+    const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error); return null; }
+    render(data);
+    return data;
+  } catch { toast('Cannot reach the app server. Is npm start running?'); return null; }
+}
+
+const tzFmt = (opts) => new Intl.DateTimeFormat(undefined, { timeZone: S.profile.timezone, ...opts });
+const clock = (ms) => tzFmt({ weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(ms);
+const hm = (ms) => tzFmt({ hour: 'numeric', minute: '2-digit' }).format(ms);
+function t12(hhmm) { const [h, m] = hhmm.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; }
+// '2026-09-27' -> Today / Yesterday / Sun, Sep 27
+function dayName(date) {
+  if (date === S.today) return 'Today';
+  const d = new Date(`${date}T12:00:00Z`);
+  const y = new Date(`${S.today}T12:00:00Z`); y.setUTCDate(y.getUTCDate() - 1);
+  if (d.getTime() === y.getTime()) return 'Yesterday';
+  return new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }).format(d);
+}
+const slotName = (m) => `${dayName(m.date)} ${t12(m.time)}`;
+const eyesText = (eyes) => (eyes.length === 2 ? 'both eyes' : `${eyes[0]} eye`);
+const whenText = (ms) => {
+  const sameDay = tzFmt({ dateStyle: 'short' }).format(ms) === tzFmt({ dateStyle: 'short' }).format(S.now);
+  return sameDay ? hm(ms) : tzFmt({ weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(ms);
+};
+
+// both eye dose where one eye is done already
+function halfDone(next) {
+  const d = S.patient.today.doses.find((x) => x.date === next.date && x.time === next.time && x.med === next.med);
+  if (!d || !d.eyesDone.length || d.eyesDone.length === d.eyes.length) return null;
+  return `${d.eyesDone.join(' and ')} eye done, ${d.eyes.filter((e) => !d.eyesDone.includes(e)).join(' and ')} eye still needed`;
+}
+
+function doseStatus(d) {
+  if (d.status === 'complete') return ['Done' + (d.completedAt ? ` at ${t12(d.completedAt)}` : ''), 'green'];
+  if (d.status === 'missed') return ['Missed', 'red'];
+  if (d.status === 'partial_missed') return ['Missed one eye', 'red'];
+  if (d.status === 'open' && d.eyesDone.length) return [`${d.eyes.find((e) => !d.eyesDone.includes(e))} eye still needed`, 'amber'];
+  if (d.status === 'open') {
+    const [h, m] = d.time.split(':').map(Number);
+    const nowParts = tzFmt({ hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(S.now);
+    const nh = +nowParts.find((p) => p.type === 'hour').value, nm = +nowParts.find((p) => p.type === 'minute').value;
+    return nh * 60 + nm >= h * 60 + m ? ['Due now', 'amber'] : ['Can take early', 'blue'];
+  }
+  return ['Later', ''];
+}
+
+const MSG = {
+  reminder: ['Reminder', 'amber'], retry: ['Try again', 'red'], coach: ['Tip', 'blue'], already_done: ['Already done', 'blue'],
+  encourage: ['Nice work', 'green'], celebrate: ['Yay', 'green'], cheer: ['Heart', 'green'], low_battery: ['Battery', 'amber'],
+};
 
 function render(s) {
-  last = s;
-  $('now').textContent = new Date(s.now).toLocaleString();
+  S = s;
+  $('now').textContent = s.profile ? clock(s.now) : new Date(s.now).toLocaleString();
   if (!s.profile) return;
-  $('phase').textContent = s.phase;
-  $('unsynced').textContent = s.unsyncedEvents;
-  $('hint').textContent = s.placementHint ?? '';
-  $('caps').replaceChildren(...s.caps.map((c) => li(`${c.capId} (${c.med}): light=${c.light}, battery=${c.batteryPct ?? '?'}%`)));
+  const p = s.profile;
 
-  const n = s.patient.today.nextDose;
-  $('next').textContent = n ? `Next: ${n.time} ${n.med}, ${n.eyes.join(' + ')} eye (${n.status})` : 'No more doses today.';
-  $('doses').replaceChildren(...s.patient.today.doses.map((d) => {
-    const tr = document.createElement('tr');
-    for (const v of [d.time, d.med, d.eyes.join('+'), d.eyesDone.join('+') || '-', d.status, d.completedAt ?? '-', d.retried ? 'yes' : '', d.lateSync ? 'yes' : '']) {
-      const td = document.createElement('td'); td.textContent = v; tr.append(td);
-    }
-    return tr;
+  // cap
+  const cap = s.caps[0];
+  $('light').className = `light ${cap.light}`;
+  $('lightLabel').textContent = { glow: 'Glowing: a dose is due', green: 'Green: dose done', off: 'Off: nothing due' }[cap.light];
+  $('battery').textContent = cap.batteryPct == null ? 'Battery unknown' : `Battery ${cap.batteryPct}%`;
+  $('unsynced').textContent = s.unsyncedEvents ? `${s.unsyncedEvents} drop(s) waiting to sync to the phone` : '';
+  $('unsynced').style.color = 'var(--amber)';
+  $('hint').textContent = s.placementHint ?? '';
+  $('eyeSeg').replaceChildren(...[['left', 'Left'], ['right', 'Right'], ['', 'Camera unsure']].map(([v, label]) =>
+    el('button', { 'aria-pressed': String(eye === v), onclick: () => { eye = v; render(S); } }, label)));
+
+  // next dose + skip button
+  const next = s.patient.today.nextDose;
+  const dueNow = next && next.at <= s.now;
+  $('nextBtn').disabled = !next || dueNow;
+  $('nextBtn').textContent = dueNow ? 'Dose due now' : 'Skip to next dose';
+  $('patientTitle').textContent = `${p.patientName}'s phone`;
+  const phaseText = { building: 'Building the habit', maintaining: 'Habit is set, app stays quiet', supporting: 'Extra support is back on' }[s.phase];
+  $('nextHero').replaceChildren(
+    next
+      ? el('div', {}, el('div', { class: 'muted small' }, dueNow ? 'Due now' : 'Next drop'),
+          el('div', { class: 'big' }, `${t12(next.time)}${next.date !== s.today ? ' tomorrow' : ''}`),
+          el('div', {}, `${next.med}, ${eyesText(next.eyes)}`),
+          halfDone(next) ? el('div', { class: 'small', style: 'color:var(--amber);font-weight:600' }, halfDone(next)) : null)
+      : el('div', { class: 'big' }, 'All done'),
+    el('div', { style: 'margin-top:8px' }, el('span', { class: 'pill blue' }, phaseText)),
+  );
+
+  const doses = s.patient.today.doses;
+  $('doses').replaceChildren(...(doses.length ? doses.map((d) => {
+    const [label, color] = doseStatus(d);
+    const extra = [d.retried && 'got it on a retry', d.lateSync && 'synced late', d.status === 'partial_missed' && `only ${d.eyesDone.join(', ')}`].filter(Boolean).join(', ');
+    return el('li', {}, el('div', {}, el('b', {}, t12(d.time)), ` ${d.med}, ${eyesText(d.eyes)}`, extra ? el('div', { class: 'small muted' }, extra) : null), el('span', { class: `pill ${color}` }, label));
+  }) : [el('li', { class: 'empty' }, 'No doses today.')]));
+  $('stickers').textContent = s.patient.stickers != null ? `Sticker book: ${s.patient.stickers} sticker${s.patient.stickers === 1 ? '' : 's'}` : '';
+
+  const msgs = s.patient.feed.filter((i) => i.channel !== 'cap').slice(-10).reverse();
+  $('messages').replaceChildren(...(msgs.length ? msgs.map((i) => {
+    const [label, color] = MSG[i.kind] ?? [i.kind, ''];
+    const via = i.channel === 'call' ? ' (phone call)' : '';
+    return el('li', {}, el('div', { class: 'msg' }, el('span', { class: `pill ${color}` }, label), el('span', {}, i.text + via), el('span', { class: 'when' }, whenText(i.at))));
+  }) : [el('li', { class: 'empty' }, 'No messages yet.')]));
+
+  const w = s.patient.week;
+  $('week').replaceChildren(
+    el('div', {}, el('b', { style: 'font-size:18px' }, `${w.dosesDone} of ${w.dosesDue}`), ' doses taken', w.adherencePct != null ? ` (${w.adherencePct}%)` : ''),
+    w.goodAimPct != null ? el('div', { class: 'muted' }, `Good aim on ${w.goodAimPct}% of drops${w.aimTrend ? `, ${w.aimTrend} vs last week` : ''}`) : null,
+  );
+
+  const sh = p.sharing;
+  const toggles = [['paused', 'Pause all sharing'], ['adherence', 'Which doses I took'], ['technique', 'How my aim is going'], ['alerts', 'Alert them if I miss a dose']];
+  $('sharing').replaceChildren(...toggles.map(([k, label]) => {
+    const box = el('input', { type: 'checkbox', 'aria-label': label });
+    box.checked = !!sh[k];
+    box.disabled = k !== 'paused' && sh.paused;
+    box.onchange = () => api('/api/sharing', { [k]: box.checked });
+    return el('label', { class: 'toggle' }, el('span', {}, label), box);
   }));
-  $('stickers').textContent = s.patient.stickers != null ? `Stickers: ${s.patient.stickers}` : '';
-  $('feed').replaceChildren(...[...s.patient.feed].reverse().slice(0, 30).map((i) => li(`${i.atLocal} [${i.channel}/${i.kind}] ${i.text}`)));
-  $('week').textContent = JSON.stringify(s.patient.week, null, 2);
-  $('caregiver').textContent = JSON.stringify(s.caregiver, null, 2);
-  $('report').textContent = JSON.stringify(s.doctorReport, null, 2);
-  for (const box of document.querySelectorAll('[data-share]')) box.checked = !!s.profile.sharing[box.dataset.share];
-  if (document.activeElement !== $('setup')) {
-    const { sharing, ...editable } = s.profile;
-    $('setup').value = JSON.stringify(editable, null, 2);
+
+  // caregiver
+  const cgName = p.caregivers[0]?.name ?? 'Caregiver';
+  $('cgTitle').textContent = `${cgName}'s phone (caregiver)`;
+  const cg = s.caregiver;
+  if (cg.paused) {
+    $('cg').replaceChildren(el('div', { class: 'hero' }, el('b', {}, `${p.patientName} paused sharing`), el('div', { class: 'small muted' }, `since ${clock(cg.pausedAt)}. You won't see doses or get alerts until they turn it back on.`)));
+  } else {
+    const parts = [];
+    if (cg.adherence) {
+      const a = cg.adherence;
+      parts.push(el('div', { class: 'hero' }, el('div', { class: 'muted small' }, 'This week'), el('div', { class: 'big' }, `${a.dosesDone} of ${a.dosesDue} doses`),
+        a.missed.length ? el('div', { class: 'small' }, `Missed: ${a.missed.map(slotName).join(', ')}`) : el('div', { class: 'small' }, 'Nothing missed')));
+      const today = a.today.map((d) => { const [label, color] = doseStatus(d); return el('li', {}, el('span', {}, `${t12(d.time)} ${eyesText(d.eyes)}`), el('span', { class: `pill ${color}` }, label)); });
+      parts.push(el('h3', {}, 'Today'), el('ul', { class: 'list' }, today));
+    } else parts.push(el('p', { class: 'muted small' }, `${p.patientName} isn't sharing which doses they took.`));
+    if (cg.technique) {
+      parts.push(el('h3', {}, 'Aim'), el('div', { class: 'small' }, cg.technique.goodAimPct == null ? 'No drops yet this week.' : `Good aim on ${cg.technique.goodAimPct}% of drops${cg.technique.aimTrend ? `, ${cg.technique.aimTrend}` : ''}.`));
+    }
+    parts.push(el('h3', {}, 'Alerts'));
+    // only recent stuff, old alerts are just noise
+    const recent = cg.notifications.filter((a) => s.now - a.at < 48 * 3600e3);
+    const alerts = recent.slice(-4).reverse();
+    const hidden = cg.notifications.length - alerts.length;
+    if (!alerts.length) parts.push(el('p', { class: 'empty' }, sh.alerts ? 'No alerts in the last 2 days. You only hear from the app when something needs you.' : `${p.patientName} turned off missed-dose alerts.`));
+    for (const a of alerts) {
+      const cls = a.kind === 'correction' ? 'alert fix' : a.kind === 'low_battery' ? 'alert info' : 'alert';
+      parts.push(el('div', { class: cls }, el('div', {}, a.text), a.action ? el('div', { class: 'act' }, a.action) : null, el('div', { class: 'small muted' }, whenText(a.at))));
+    }
+    if (hidden > 0) parts.push(el('p', { class: 'small muted' }, `${hidden} older alert${hidden === 1 ? '' : 's'} not shown.`));
+    $('cg').replaceChildren(...parts);
+  }
+
+  // doctor report
+  const r = s.doctorReport, t = r.technique;
+  const stat = (v, label) => el('div', { class: 'stat' }, el('b', {}, v ?? '-'), el('span', {}, label));
+  $('report').replaceChildren(
+    stat(r.adherencePct != null ? `${r.adherencePct}%` : null, `Doses taken (${r.dosesDone} of ${r.dosesDue})`),
+    stat(r.onTimePct != null ? `${r.onTimePct}%` : null, 'Taken within an hour'),
+    stat(r.dosesSavedByRetry, 'Doses saved by a retry'),
+    stat(r.missedEyeAttempts, 'Drops that missed the eye'),
+    stat(r.unconfirmedAttempts, "Drops we couldn't confirm"),
+    stat(r.wrongEyeDrops, 'Drops in the wrong eye'),
+    stat(r.offScheduleDrops, 'Drops outside dose times'),
+    stat(t.goodAimPct != null ? `${t.goodAimPct}%` : null, 'Drops with good aim'),
+    stat(t.medianDistanceMm != null ? `${t.medianDistanceMm} mm` : null, 'Typical distance from eye'),
+    stat(t.medianTiltDeg != null ? `${t.medianTiltDeg}°` : null, 'Typical bottle tilt'),
+    stat(r.ignoredFalseTriggers, 'False triggers ignored'),
+  );
+  $('reportMissed').textContent = r.missed.length ? `Missed doses: ${r.missed.map(slotName).join(', ')}` : '';
+
+  // setup form, only refill when not being edited
+  if (!document.querySelector('.form').contains(document.activeElement)) {
+    const med = p.medications[0];
+    $('fName').value = p.patientName; $('fMode').value = p.mode; $('fMed').value = med.name;
+    $('fTimes').value = med.doses.map((d) => d.time).join(', ');
+    const e = med.doses[0].eyes; $('fEyes').value = e.length === 2 ? 'both' : e[0];
+    $('fAnchor').value = p.routine.anchor ?? ''; $('fPlace').value = p.routine.placement ?? '';
+    $('fChannel').value = p.reminderChannel; $('fCg').value = p.caregivers[0]?.name ?? '';
   }
 }
 
-document.querySelectorAll('[data-adv]').forEach((b) => b.onclick = () => api('/api/clock', { advanceMin: Number(b.dataset.adv) }));
-$('setBtn').onclick = () => $('setTime').value && api('/api/clock', { set: new Date($('setTime').value).toISOString() });
-$('dropBtn').onclick = () => api('/api/drop', { scenario: $('scenario').value, eye: $('eye').value, syncDelayMin: Number($('delay').value || 0), batteryPct: $('battery').value, capId: last?.caps?.[0]?.capId });
-$('cheerBtn').onclick = () => api('/api/cheer', { from: $('cheerFrom').value });
-document.querySelectorAll('[data-share]').forEach((box) => box.onchange = () => api('/api/sharing', { [box.dataset.share]: box.checked }));
+function showResult(d) {
+  const r = d.result;
+  let text, color;
+  if (r.kind === 'noise') { text = "Not a drop. The app ignored it and nothing was counted."; color = 'gray'; }
+  else if (r.outcome === 'delivered') { text = `Landed in the eye (${r.confidence} confidence).`; color = 'green'; }
+  else if (r.outcome === 'missed_eye') { text = 'Missed the eye. No credit, the patient is asked to try again.'; color = 'red'; }
+  else { text = "Couldn't confirm it landed. No credit, the patient is asked to try again."; color = 'amber'; }
+  if (r.tips?.length) text += ` Tip shown: "${r.tips.join(' ')}"`;
+  if (!d.synced) text += " The phone won't know until the cap syncs.";
+  $('result').className = `result ${color}`;
+  $('result').textContent = text;
+}
+
+$('scenarios').replaceChildren(...SCEN.map(([key, title, sub]) => el('button', {
+  onclick: async () => {
+    const data = await api('/api/drop', { scenario: key, eye, syncDelayMin: Number($('sync').value), batteryPct: $('batt').value, capId: S?.caps?.[0]?.capId });
+    if (data) showResult(data.lastDrop);
+  },
+}, title, el('span', {}, sub))));
+
+document.querySelectorAll('[data-adv]').forEach((b) => (b.onclick = () => api('/api/clock', { advanceMin: Number(b.dataset.adv) })));
+$('nextBtn').onclick = () => api('/api/clock', { toNextDose: true });
+$('cheerBtn').onclick = async () => { if (await api('/api/cheer', { from: S?.profile?.caregivers?.[0]?.name ?? 'Family' })) toast('Heart sent.', false); };
 $('demoBtn').onclick = () => api('/api/demo', {});
-$('histBtn').onclick = () => api('/api/history', { days: Number($('histDays').value), adherenceRate: Number($('histRate').value) });
-$('setupBtn').onclick = () => {
-  let body;
-  try { body = JSON.parse($('setup').value); } catch { $('err').textContent = 'Error: setup is not valid JSON'; return; }
-  api('/api/setup', body);
+$('histBtn').onclick = () => api('/api/history', { days: Number($('hDays').value), adherenceRate: Number($('hRate').value) / 100 });
+$('saveBtn').onclick = () => {
+  // let people type 8:00 or 8 and fix it up
+  const times = $('fTimes').value.split(',').map((x) => x.trim()).filter(Boolean)
+    .map((x) => { const [h, m = '00'] = x.split(':'); return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`; });
+  const eyes = $('fEyes').value === 'both' ? ['left', 'right'] : [$('fEyes').value];
+  const cg = $('fCg').value.trim();
+  api('/api/setup', {
+    patientName: $('fName').value, mode: $('fMode').value, timezone: S?.profile?.timezone,
+    reminderChannel: $('fChannel').value,
+    routine: { anchor: $('fAnchor').value.trim() || null, placement: $('fPlace').value.trim() || null },
+    medications: [{ name: $('fMed').value, capId: 'cap-1', doses: times.map((time) => ({ time, eyes })) }],
+    caregivers: cg ? [{ name: cg }] : [],
+  });
 };
 
-(async () => {
-  const scen = await (await fetch('/api/scenarios')).json();
-  $('scenario').replaceChildren(...Object.entries(scen).map(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; return o; }));
-  api('/api/state');
-})();
+api('/api/state');
 </script>
 </body>
 </html>

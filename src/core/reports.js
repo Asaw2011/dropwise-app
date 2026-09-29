@@ -56,12 +56,14 @@ export function capIndicators(profile, events, now) {
 export function todayView(profile, events, now) {
   const tz = profile.timezone;
   const today = localDate(now, tz);
-  const { slots } = computeLedger({ profile, events, now, from: today, to: today });
+  // look into tomorrow too so theres always a next dose after the last one today
+  const { slots } = computeLedger({ profile, events, now, from: today, to: addDays(today, 1) });
+  const todays = slots.filter((s) => s.date === today);
   const next = slots.find((s) => s.status === 'open' || s.status === 'upcoming');
   return {
     date: today,
-    doses: slots.map((s) => slotBrief(s, tz)),
-    nextDose: next ? { time: next.timeStr, med: next.medName, eyes: next.eyes, status: next.status } : null,
+    doses: todays.map((s) => slotBrief(s, tz)),
+    nextDose: next ? { at: next.time, date: next.date, time: next.timeStr, med: next.medName, eyes: next.eyes, status: next.status } : null,
   };
 }
 

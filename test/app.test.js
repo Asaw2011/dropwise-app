@@ -68,6 +68,16 @@ test('miss and retry in the same minute still counts as a retry, in order', () =
   assert.deepEqual(kinds(s), ['cap_glow', 'retry', 'coach', 'encourage', 'cheer']);
 });
 
+test('next dose rolls over to tomorrow after the last one today', () => {
+  const app = makeApp();
+  drop(app, 'good', at(D, '20:01'));
+  const next = app.snapshot(at(D, '21:00')).patient.today.nextDose;
+  assert.equal(next.date, '2026-10-02');
+  assert.equal(next.time, '08:00');
+  assert.equal(next.at, at('2026-10-02', '08:00'));
+  assert.equal(app.snapshot(at(D, '21:00')).patient.today.doses.length, 2);
+});
+
 test('only failed attempts means missed, not complete', () => {
   const app = makeApp();
   drop(app, 'missed_cheek', at(D, '08:02'));

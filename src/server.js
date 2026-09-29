@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { classifyReading } from './core/classify.js';
 import { Dropwise } from './core/engine.js';
 import { ValidationError } from './core/profile.js';
 import { MIN } from './core/time.js';
@@ -101,7 +102,12 @@ const routes = {
     return snapshot();
   },
   'POST /api/clock': (b) => {
-    if (b.set != null) {
+    if (b.toNextDose) {
+      const next = state.app.snapshot(state.now).patient.today.nextDose;
+      if (!next) throw new ValidationError('no upcoming dose');
+      // land a minute after it's due so the cap is already glowing
+      state.now = Math.max(state.now, next.at + MIN);
+    } else if (b.set != null) {
       const t = Date.parse(b.set);
       if (Number.isNaN(t)) throw new ValidationError('set must be a date string');
       state.now = t;
@@ -118,14 +124,15 @@ const routes = {
     if (!Number.isFinite(delay) || delay < 0) throw new ValidationError('syncDelayMin must be 0 or more');
     const eye = b.eye === 'left' || b.eye === 'right' ? b.eye : null;
     const battery = b.batteryPct === '' || b.batteryPct == null ? null : Number(b.batteryPct);
-    state.app.ingest({
+    const reading = scenarioReading(b.scenario, eye);
+    const ev = state.app.ingest({
       capId: b.capId ?? state.app.requireProfile().medications[0].capId,
-      reading: scenarioReading(b.scenario, eye),
+      reading,
       occurredAt: state.now,
       receivedAt: state.now + delay * MIN,
       batteryPct: battery,
     });
-    return snapshot();
+    return { ...snapshot(), lastDrop: { id: ev.id, synced: delay === 0, result: classifyReading(reading) } };
   },
   'POST /api/cheer': (b) => {
     state.app.cheer(b.from ?? 'Family', state.now);
