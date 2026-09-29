@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dropwise Core</title>
+</head>
+<body>
+<h1>Dropwise core (no UI yet)</h1>
+<p>Test harness for the core functions. The cap and clock are simulated. <span id="err" role="alert"></span></p>
+
+<h2>Clock</h2>
+<p>Now: <b id="now"></b> | Habit phase: <b id="phase"></b> | Unsynced cap events: <b id="unsynced"></b></p>
+<button data-adv="15">+15 min</button>
+<button data-adv="60">+1 hour</button>
+<button data-adv="240">+4 hours</button>
+<button data-adv="1440">+1 day</button>
+<label>Jump to <input id="setTime" type="datetime-local"></label> <button id="setBtn">Set</button>
+
+<h2>Cap</h2>
+<ul id="caps"></ul>
+<p id="hint"></p>
+<label>What happens <select id="scenario"></select></label>
+<label>Eye <select id="eye"><option value="">camera unsure</option><option>left</option><option>right</option></select></label>
+<label>Sync delay (min) <input id="delay" type="number" min="0" value="0" size="4"></label>
+<label>Battery % <input id="battery" type="number" min="0" max="100" value="80" size="4"></label>
+<button id="dropBtn">Squeeze bottle</button>
+
+<h2>Patient: today</h2>
+<p id="next"></p>
+<table border="1">
+<thead><tr><th>Time</th><th>Med</th><th>Eyes</th><th>Done</th><th>Status</th><th>Taken at</th><th>Retried</th><th>Late sync</th></tr></thead>
+<tbody id="doses"></tbody>
+</table>
+<p id="stickers"></p>
+
+<h2>Patient: feed (latest first)</h2>
+<ol id="feed" reversed></ol>
+
+<h2>Patient: this week</h2>
+<pre id="week"></pre>
+
+<h2>Caregiver view</h2>
+<label>From <input id="cheerFrom" value="Avi" size="8"></label> <button id="cheerBtn">Send heart</button>
+<pre id="caregiver"></pre>
+
+<h2>Sharing (patient controls)</h2>
+<label><input type="checkbox" data-share="paused"> Pause all sharing</label>
+<label><input type="checkbox" data-share="adherence"> Share doses</label>
+<label><input type="checkbox" data-share="technique"> Share aim</label>
+<label><input type="checkbox" data-share="alerts"> Send missed-dose alerts</label>
+
+<h2>Doctor report (last 30 days)</h2>
+<pre id="report"></pre>
+
+<h2>Setup and demo data</h2>
+<button id="demoBtn">Reset to demo (20 days of history)</button>
+<label>Backfill <input id="histDays" type="number" value="70" size="4"> days at <input id="histRate" type="number" value="0.9" step="0.05" size="4"> adherence</label>
+<button id="histBtn">Backfill</button>
+<details>
+<summary>Edit setup (JSON)</summary>
+<textarea id="setup" rows="18" cols="80"></textarea><br>
+<button id="setupBtn">Save setup (clears history)</button>
+</details>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let last = null;
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { $('err').textContent = 'Error: ' + data.error; return null; }
+  $('err').textContent = '';
+  render(data);
+  return data;
+}
+
+function li(text) { const el = document.createElement('li'); el.textContent = text; return el; }
+
+function render(s) {
+  last = s;
+  $('now').textContent = new Date(s.now).toLocaleString();
+  if (!s.profile) return;
+  $('phase').textContent = s.phase;
+  $('unsynced').textContent = s.unsyncedEvents;
+  $('hint').textContent = s.placementHint ?? '';
+  $('caps').replaceChildren(...s.caps.map((c) => li(`${c.capId} (${c.med}): light=${c.light}, battery=${c.batteryPct ?? '?'}%`)));
+
+  const n = s.patient.today.nextDose;
+  $('next').textContent = n ? `Next: ${n.time} ${n.med}, ${n.eyes.join(' + ')} eye (${n.status})` : 'No more doses today.';
+  $('doses').replaceChildren(...s.patient.today.doses.map((d) => {
+    const tr = document.createElement('tr');
+    for (const v of [d.time, d.med, d.eyes.join('+'), d.eyesDone.join('+') || '-', d.status, d.completedAt ?? '-', d.retried ? 'yes' : '', d.lateSync ? 'yes' : '']) {
+      const td = document.createElement('td'); td.textContent = v; tr.append(td);
+    }
+    return tr;
+  }));
+  $('stickers').textContent = s.patient.stickers != null ? `Stickers: ${s.patient.stickers}` : '';
+  $('feed').replaceChildren(...[...s.patient.feed].reverse().slice(0, 30).map((i) => li(`${i.atLocal} [${i.channel}/${i.kind}] ${i.text}`)));
+  $('week').textContent = JSON.stringify(s.patient.week, null, 2);
+  $('caregiver').textContent = JSON.stringify(s.caregiver, null, 2);
+  $('report').textContent = JSON.stringify(s.doctorReport, null, 2);
+  for (const box of document.querySelectorAll('[data-share]')) box.checked = !!s.profile.sharing[box.dataset.share];
+  if (document.activeElement !== $('setup')) {
+    const { sharing, ...editable } = s.profile;
+    $('setup').value = JSON.stringify(editable, null, 2);
+  }
+}
+
+document.querySelectorAll('[data-adv]').forEach((b) => b.onclick = () => api('/api/clock', { advanceMin: Number(b.dataset.adv) }));
+$('setBtn').onclick = () => $('setTime').value && api('/api/clock', { set: new Date($('setTime').value).toISOString() });
+$('dropBtn').onclick = () => api('/api/drop', { scenario: $('scenario').value, eye: $('eye').value, syncDelayMin: Number($('delay').value || 0), batteryPct: $('battery').value, capId: last?.caps?.[0]?.capId });
+$('cheerBtn').onclick = () => api('/api/cheer', { from: $('cheerFrom').value });
+document.querySelectorAll('[data-share]').forEach((box) => box.onchange = () => api('/api/sharing', { [box.dataset.share]: box.checked }));
+$('demoBtn').onclick = () => api('/api/demo', {});
+$('histBtn').onclick = () => api('/api/history', { days: Number($('histDays').value), adherenceRate: Number($('histRate').value) });
+$('setupBtn').onclick = () => {
+  let body;
+  try { body = JSON.parse($('setup').value); } catch { $('err').textContent = 'Error: setup is not valid JSON'; return; }
+  api('/api/setup', body);
+};
+
+(async () => {
+  const scen = await (await fetch('/api/scenarios')).json();
+  $('scenario').replaceChildren(...Object.entries(scen).map(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; return o; }));
+  api('/api/state');
+})();
+</script>
+</body>
+</html>

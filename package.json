@@ -1,0 +1,14 @@
+{
+  "name": "dropwise",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dropwise companion app core: dose confirmation, reminders, habit support, caregiver and doctor reports",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
