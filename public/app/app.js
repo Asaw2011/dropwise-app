@@ -135,7 +135,7 @@ const ICON = {
   journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>',
   messages: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
   me: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
-  drop: '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2s-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" fill="#6246ea"/></svg>',
+  drop: '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2s-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" fill="#2ec27e"/></svg>',
   pin: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6246ea" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s-6-6.2-6-11a6 6 0 0 1 12 0c0 4.8-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
   status: '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg><svg width="25" height="12" viewBox="0 0 25 12"><rect x=".5" y=".5" width="21" height="11" rx="3" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/><rect x="23" y="4" width="1.6" height="4" rx=".8" fill="currentColor" opacity=".4"/></svg>',
 };
@@ -155,10 +155,10 @@ function topbar() {
   const { journey: j, phase, profile: p } = ui.S;
   const day = Math.min(j.daysIn, j.habitDays);
   const label = phase === 'building' ? `Habit day ${day} of ${j.habitDays}`
-    : phase === 'maintaining' ? 'Habit is set' : 'Extra support is on';
+    : phase === 'maintaining' ? '✓ Habit is set' : 'Extra support is on';
   const pct = phase === 'building' ? Math.round((day / j.habitDays) * 100) : 100;
   return `<div class="topbar">
-    <div class="progress-pill"><div class="t">${esc(label)}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
+    <div class="progress-pill"><div class="t ${phase === 'maintaining' ? 'ok' : ''}" ${phase === 'maintaining' ? 'style="color:var(--mint-600)"' : ''}>${esc(label)}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
     <div class="counter" title="Doses in a row" aria-label="${j.streak} doses in a row">${ICON.drop}${j.streak}</div>
     <div class="avatar" aria-hidden="true">${esc(p.patientName.charAt(0))}</div>
   </div>`;
@@ -171,7 +171,8 @@ function todaysMessages() {
 function msgCard(i) {
   const [label, cls] = MSG[i.kind] ?? [i.kind, ''];
   const via = i.channel === 'call' ? ' (phone call)' : '';
-  return `<div class="card msg"><span class="pill ${cls}">${esc(label)}</span><span class="text">${esc(i.text + via)}</span><span class="at">${esc(whenText(i.at))}</span></div>`;
+  const good = ['encourage', 'celebrate', 'cheer'].includes(i.kind);
+  return `<div class="card msg ${good ? 'good' : ''}"><span class="pill ${cls}">${esc(label)}</span><span class="text">${esc(i.text + via)}</span><span class="at">${esc(whenText(i.at))}</span></div>`;
 }
 
 // ---------- patient: tabs ----------
@@ -249,7 +250,7 @@ const views = {
         ${nodes}
       </div>
       <div><h2>So far</h2><div class="stats">
-        <div class="stat"><b>${j.confirmed}</b><span>drops confirmed</span></div>
+        <div class="stat mint"><b>${j.confirmed}</b><span>drops confirmed</span></div>
         <div class="stat"><b>${j.streak}</b><span>doses in a row</span></div>
         <div class="stat"><b>${aim != null ? `${aim}%` : '-'}</b><span>good aim this week</span></div>
         <div class="stat"><b>${j.daysIn}</b><span>days with Dropwise</span></div>
@@ -356,7 +357,7 @@ function openDropSheet(d) {
     const pending = S.patient.today.doses.find((x) => x.status === 'open' && x.eyesDone.length && x.eyesDone.length < x.eyes.length);
     const body = pending ? `One down. Now your ${pending.eyes.find((e) => !pending.eyesDone.includes(e))} eye.`
       : (get('celebrate') ?? get('encourage'))?.text ?? 'Dose confirmed.';
-    sheet = { mood: kid ? 'cheer' : 'happy', title: kid ? 'You did it!' : 'It landed', body };
+    sheet = { mood: kid ? 'cheer' : 'happy', title: kid ? 'You did it!' : 'It landed', body, ok: true };
   } else {
     sheet = {
       mood: 'oops',
@@ -399,7 +400,7 @@ function renderSheet() {
   const s = ui.sheet;
   if (!s) { box.innerHTML = ''; return; }
   const inner = s.report ? s.html : `
-    <div class="pop" style="display:grid;place-items:center;margin-top:6px">${mascot(s.mood, 96, s.mood === 'happy' || s.mood === 'cheer' ? 'breathe' : '')}</div>
+    <div class="pop mascot-wrap ${s.ok ? 'ok' : ''}">${mascot(s.mood, 96, s.ok ? 'breathe' : '')}${s.ok ? '<span class="badge-ok" aria-hidden="true">✓</span>' : ''}</div>
     <h1>${esc(s.title)}</h1>
     <p style="font-weight:700;font-size:18px;margin:0 0 6px">${esc(s.body)}</p>
     ${s.tip ? `<div class="tip">💡 ${esc(s.tip)}</div>` : ''}
@@ -480,7 +481,7 @@ function obView() {
       return `<div class="ob welcome ${ui.ob.dir}">
         <div class="grow"></div>
         <div class="breathe" style="display:grid;place-items:center">${mascot('calm', 120)}</div>
-        <div class="wordmark" style="margin-top:22px">dropwise</div>
+        <div class="wordmark" style="margin-top:22px">drop<span class="wise">wise</span></div>
         <p style="font-size:20px;font-weight:700;margin:6px 0 0">Every drop, confirmed.</p>
         <p class="sub" style="margin:8px 16px 0">The cap checks each drop lands in your eye, so you never have to wonder.</p>
         <div class="grow"></div>
