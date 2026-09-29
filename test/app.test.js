@@ -128,6 +128,31 @@ test('feed items carry the dose date and time for compact titles', () => {
   assert.equal(alert.slotTime, '08:00');
 });
 
+test('journey stats count days in, confirmed doses, and current run', () => {
+  const app = makeApp();
+  drop(app, 'good', at(D, '08:01'));
+  drop(app, 'good', at(D, '20:01'));
+  drop(app, 'good', at('2026-10-02', '20:01'));
+  const j = app.snapshot(at('2026-10-02', '21:00')).journey;
+  assert.equal(j.daysIn, 2);
+  assert.equal(j.confirmed, 3);
+  // 10-02 8am was missed so the run is just the one after it
+  assert.equal(j.streak, 1);
+});
+
+test('updating settings keeps history, sharing, and start date', () => {
+  const app = makeApp();
+  drop(app, 'good', at(D, '08:01'));
+  app.setSharing({ technique: false }, at(D, '08:00'));
+  app.updateProfile({ mode: 'kid' }, at(D, '09:00'));
+  const s = app.snapshot(at(D, '09:00'));
+  assert.equal(s.profile.mode, 'kid');
+  assert.equal(s.profile.startDate, '2026-10-01');
+  assert.equal(s.profile.sharing.technique, false);
+  assert.equal(s.patient.today.doses[0].status, 'complete');
+  assert.throws(() => app.updateProfile({ medications: [] }, at(D, '09:00')), /can't change/);
+});
+
 test('only failed attempts means missed, not complete', () => {
   const app = makeApp();
   drop(app, 'missed_cheek', at(D, '08:02'));

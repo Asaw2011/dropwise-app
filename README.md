@@ -3,7 +3,7 @@
 Companion app for the Dropwise smart eye drop cap. It confirms drops actually land, reminds only when needed, builds the habit, and keeps family in the loop without extra work.
 
 ```
-npm start    # http://localhost:4321
+npm start    # app at http://localhost:4321, old test page at /sim
 npm test
 ```
 
@@ -18,7 +18,8 @@ No dependencies. Requires Node 20 or newer.
 src/core/     engine, pure functions (classify, ledger, feed, habit, reports, profile, time)
 src/sim/      fake cap readings and dose history
 src/server.js local API plus the test page
-public/       bare test harness page
+public/app/   designed app (index.html, app.css, app.js)
+public/sim.html  old test harness
 test/         node:test suites
 data/         local state (gitignored)
 ```
@@ -31,6 +32,7 @@ data/         local state (gitignored)
 | `POST /api/drop` | `{ scenario, eye?, syncDelayMin?, batteryPct?, capId? }` |
 | `POST /api/clock` | `{ advanceMin }` or `{ set: "2026-09-29T08:10" }` |
 | `POST /api/cheer` | `{ from }` |
+| `POST /api/profile` | `{ mode?, reminderChannel?, patientName?, routine?, caregivers? }` keeps history |
 | `POST /api/sharing` | `{ paused?, adherence?, technique?, alerts? }` |
 | `POST /api/demo` | resets to demo data |
 | `POST /api/history` | `{ days, adherenceRate }` |

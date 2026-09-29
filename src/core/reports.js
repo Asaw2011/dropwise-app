@@ -1,6 +1,6 @@
 import { TIMING } from './config.js';
 import { adherence, computeLedger } from './ledger.js';
-import { MIN, addDays, localDate, localTime } from './time.js';
+import { MIN, addDays, daysBetween, localDate, localTime } from './time.js';
 
 function median(nums) {
   if (!nums.length) return null;
@@ -134,4 +134,18 @@ export function doctorReport(profile, events, now, from, to) {
     missed: ledger.slots.filter((s) => s.status === 'missed' || s.status === 'partial_missed').map((s) => slotBrief(s, tz)),
     note: 'Research prototype data. Not a medical device and not clinically validated.',
   };
+}
+
+// habit path: how far in, how many confirmed, current run without a miss
+export function journeyStats(profile, events, now) {
+  const today = localDate(now, profile.timezone);
+  const daysIn = Math.max(1, daysBetween(profile.startDate, today) + 1);
+  const { slots } = computeLedger({ profile, events, now, from: profile.startDate, to: today });
+  const confirmed = slots.filter((s) => s.status === 'complete').length;
+  let streak = 0;
+  for (const s of [...slots].reverse()) {
+    if (s.status === 'complete') streak++;
+    else if (s.status === 'missed' || s.status === 'partial_missed') break;
+  }
+  return { daysIn, habitDays: TIMING.habitBuildDays, confirmed, streak };
 }

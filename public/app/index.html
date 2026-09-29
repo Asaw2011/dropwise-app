@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dropwise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="stage">
+  <aside class="dev" id="dev" aria-label="Demo controls"></aside>
+  <div class="phones">
+    <figure class="phone-wrap">
+      <figcaption>Patient</figcaption>
+      <div class="phone" id="patient">
+        <div class="statusbar" id="pStatus"></div>
+        <div id="pBody" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+        <div id="pTabs"></div>
+        <div id="pSheet"></div>
+        <div id="pToast"></div>
+      </div>
+    </figure>
+    <figure class="phone-wrap">
+      <figcaption>Caregiver</figcaption>
+      <div class="phone" id="caregiver">
+        <div class="statusbar" id="cStatus"></div>
+        <div id="cBody" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
+        <div id="cToast"></div>
+      </div>
+    </figure>
+  </div>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

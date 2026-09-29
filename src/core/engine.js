@@ -1,7 +1,7 @@
 import { computeFeed } from './feed.js';
 import { makePhaseLookup } from './habit.js';
 import { ValidationError, normalizeProfile, placementHint } from './profile.js';
-import { capIndicators, caregiverView, doctorReport, todayView, weeklySummary } from './reports.js';
+import { capIndicators, caregiverView, doctorReport, journeyStats, todayView, weeklySummary } from './reports.js';
 import { addDays, localDate } from './time.js';
 
 // holds raw data only (profile, cap events, cheers). everything else is derived on read
@@ -50,6 +50,19 @@ export class Dropwise {
     return c;
   }
 
+  // change settings without wiping history (kid mode, reminder method, names, routine)
+  updateProfile(patch, now) {
+    const p = this.requireProfile();
+    const allowed = ['patientName', 'mode', 'reminderChannel', 'routine', 'caregivers'];
+    for (const k of Object.keys(patch ?? {})) {
+      if (!allowed.includes(k)) throw new ValidationError(`can't change ${k} here`);
+    }
+    const next = normalizeProfile({ ...p, ...patch }, now);
+    next.sharing = p.sharing;
+    this.profile = next;
+    return next;
+  }
+
   setSharing(patch, now) {
     const p = this.requireProfile();
     const allowed = ['paused', 'adherence', 'technique', 'alerts'];
@@ -85,6 +98,7 @@ export class Dropwise {
         feed: feed.items.filter((i) => i.to === 'patient'),
       },
       caregiver: caregiverView(p, this.events, now, feed.items),
+      journey: journeyStats(p, this.events, now),
       doctorReport: doctorReport(p, this.events, now, addDays(today, -29), today),
     };
   }

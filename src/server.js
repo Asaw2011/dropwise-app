@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyReading } from './core/classify.js';
 import { Dropwise } from './core/engine.js';
@@ -138,11 +138,32 @@ const routes = {
     state.app.cheer(b.from ?? 'Family', state.now);
     return snapshot();
   },
+  'POST /api/profile': (b) => {
+    state.app.updateProfile(b, state.now);
+    return snapshot();
+  },
   'POST /api/sharing': (b) => {
     state.app.setSharing(b, state.now);
     return snapshot();
   },
 };
+
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
+const APP_DIR = join(ROOT, 'public', 'app');
+
+// "/" is the designed app, "/sim" the old test harness, everything else from public/app
+function staticFile(pathname) {
+  if (pathname === '/') return join(APP_DIR, 'index.html');
+  if (pathname === '/sim') return join(ROOT, 'public', 'sim.html');
+  let file;
+  try {
+    file = normalize(join(APP_DIR, decodeURIComponent(pathname)));
+  } catch {
+    return null;
+  }
+  if (!file.startsWith(APP_DIR + sep) || !TYPES[extname(file)] || !existsSync(file)) return null;
+  return file;
+}
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -151,8 +172,10 @@ const server = createServer(async (req, res) => {
     res.end(type === 'application/json' ? JSON.stringify(body) : body);
   };
   try {
-    if (req.method === 'GET' && url.pathname === '/') {
-      return send(200, readFileSync(join(ROOT, 'public', 'index.html')), 'text/html; charset=utf-8');
+    if (req.method === 'GET' && !url.pathname.startsWith('/api/')) {
+      const file = staticFile(url.pathname);
+      if (!file) return send(404, 'not found', 'text/plain');
+      return send(200, readFileSync(file), TYPES[extname(file)] ?? 'application/octet-stream');
     }
     const handler = routes[`${req.method} ${url.pathname}`];
     if (!handler) return send(404, { error: 'not found' });
