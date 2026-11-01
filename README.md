@@ -23,6 +23,7 @@ public/sim.html  old test harness
 test/         node:test suites
 data/         local state (gitignored)
 ```
+The camera model that decides if a drop went in is its own repo: [dropnet](https://github.com/Asaw2011/dropnet). It posts confirmed drops to `/api/drop`.
 
 ## API (all JSON)
 | Route | Body |
